@@ -18,5 +18,5 @@ export default async function SettingsPage() {
     effort: (preset?.effort ?? DEFAULT_SCALES.effort) as unknown as { label: string; value: number }[],
     version: preset?.version ?? 1
   };
-  return <WorkspaceSettings activeWorkspace={{ id: data.id, name: data.name }} projects={projects} objectives={data.objectives.map((objective) => ({ ...objective, periodStart: objective.periodStart?.toISOString() ?? null, periodEnd: objective.periodEnd?.toISOString() ?? null }))} stages={data.stages} scales={scales}/>;
+  return <WorkspaceSettings activeWorkspace={{ id: data.id, name: data.name }} projects={projects} objectives={data.objectives.map((objective) => ({ ...objective, periodStart: objective.periodStart?.toISOString() ?? null, periodEnd: objective.periodEnd?.toISOString() ?? null }))} stages={data.stages.map((stage) => ({ ...stage, hypothesisCount: data.hypotheses.filter((hypothesis) => hypothesis.funnelStageId === stage.id).length }))} scales={scales}/>;
 }
