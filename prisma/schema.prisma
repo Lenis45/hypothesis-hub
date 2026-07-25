@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum HypothesisStatus {
+  IDEA
+  READY_FOR_PRIORITIZATION
+  PRIORITIZED
+  PLANNED
+  IN_PROGRESS
+  VALIDATED
+  REJECTED
+  ARCHIVED
+}
+
+enum ImportIssueStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+model User {
+  id          String       @id @default(cuid())
+  name        String?
+  email       String?      @unique
+  image       String?
+  memberships Membership[]
+  owned       Hypothesis[] @relation("Owner")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Workspace {
+  id            String          @id @default(cuid())
+  name          String
+  memberships   Membership[]
+  objectives    Objective[]
+  stages        FunnelStage[]
+  hypotheses    Hypothesis[]
+  priorityPreset PriorityPreset?
+  importBatches ImportBatch[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role      @default(EDITOR)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([workspaceId, userId])
+}
+
+model Objective {
+  id           String       @id @default(cuid())
+  workspaceId  String
+  title        String
+  metric       String?
+  currentValue Float?
+  targetValue  Float?
+  periodStart  DateTime?
+  periodEnd    DateTime?
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  hypotheses   Hypothesis[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model FunnelStage {
+  id          String       @id @default(cuid())
+  workspaceId String
+  name        String
+  position    Int          @default(0)
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  hypotheses  Hypothesis[]
+  @@unique([workspaceId, name])
+}
+
+model PriorityPreset {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  reach       Json
+  impact      Json
+  confidence  Json
+  effort      Json
+  version     Int       @default(1)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  updatedAt   DateTime  @updatedAt
+}
+
+model Hypothesis {
+  id              String           @id @default(cuid())
+  workspaceId     String
+  objectiveId     String?
+  funnelStageId   String?
+  ownerId         String?
+  title           String
+  normalizedTitle String
+  hypothesis      String?
+  actions         String?
+  dataMethod      String?
+  expectedUpside  String?
+  expectedDownside String?
+  reachLabel      String?
+  reachValue      Float?
+  impactLabel     String?
+  impactValue     Float?
+  confidenceLabel String?
+  confidenceValue Float?
+  effortLabel     String?
+  effortValue     Float?
+  score           Float?
+  status          HypothesisStatus @default(IDEA)
+  dueDate         DateTime?
+  tags            String[]         @default([])
+  comment         String?
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  objective       Objective?       @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  funnelStage     FunnelStage?     @relation(fields: [funnelStageId], references: [id], onDelete: SetNull)
+  owner           User?            @relation("Owner", fields: [ownerId], references: [id], onDelete: SetNull)
+  experiments     ExperimentLog[]
+  history         HypothesisHistory[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  @@unique([workspaceId, normalizedTitle])
+}
+
+model ExperimentLog {
+  id           String     @id @default(cuid())
+  hypothesisId String
+  metric       String?
+  expected     String?
+  actual       String?
+  conclusion   String?
+  decision     String?
+  recordedAt   DateTime   @default(now())
+  hypothesis   Hypothesis @relation(fields: [hypothesisId], references: [id], onDelete: Cascade)
+}
+
+model HypothesisHistory {
+  id           String     @id @default(cuid())
+  hypothesisId String
+  actorId      String?
+  event        String
+  payload      Json?
+  createdAt    DateTime   @default(now())
+  hypothesis   Hypothesis @relation(fields: [hypothesisId], references: [id], onDelete: Cascade)
+}
+
+model ImportBatch {
+  id          String        @id @default(cuid())
+  workspaceId String
+  fileName    String
+  imported    Int           @default(0)
+  skipped     Int           @default(0)
+  createdAt   DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  issues      ImportIssue[]
+}
+
+model ImportIssue {
+  id          String            @id @default(cuid())
+  batchId     String
+  rowNumber   Int
+  sheetName   String
+  reason      String
+  payload     Json?
+  status      ImportIssueStatus @default(OPEN)
+  batch       ImportBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+}
